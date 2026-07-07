@@ -172,7 +172,7 @@
 
 <div id="toast"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js" crossorigin="anonymous"></script>
 <script src="/relayer-sdk-js.umd.cjs"></script>
 <script>
 /* ============================================================
@@ -224,7 +224,7 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
 (async function initFHE(){
   try{
     const { initSDK, createInstance, SepoliaConfig } = window.relayerSDK;
-    await initSDK();
+    await initSDK({ thread: navigator.hardwareConcurrency || 4 });
     $('initStatus').textContent = 'Fetching Zama coprocessor public keys…';
     fhe = await createInstance({ ...SepoliaConfig, network: 'https://ethereum-sepolia-rpc.publicnode.com' });
     $('initCard').classList.add('hidden');
