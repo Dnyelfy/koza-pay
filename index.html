@@ -226,7 +226,7 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
     const { initSDK, createInstance, SepoliaConfig } = window.relayerSDK;
     await initSDK();
     $('initStatus').textContent = 'Fetching Zama coprocessor public keys…';
-    fhe = await createInstance({ ...SepoliaConfig, network: window.ethereum || SepoliaConfig.network });
+    fhe = await createInstance({ ...SepoliaConfig, network: 'https://ethereum-sepolia-rpc.publicnode.com' });
     $('initCard').classList.add('hidden');
     $('app').classList.remove('hidden');
   }catch(e){
