@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KozaPay — Confidential Payroll on Zama FHEVM</title>
+<style>
+  :root{
+    --bg:#0b0b10; --panel:#14141d; --panel2:#1b1b28; --border:#2a2a3d;
+    --text:#e8e8f0; --muted:#8a8aa3; --accent:#ffd208; --accent2:#ffb800;
+    --green:#2fd47a; --red:#ff5c7a; --blue:#5c9dff;
+    --radius:14px; --mono:'SF Mono',ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh}
+  body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 60% 40% at 50% -10%,rgba(255,210,8,.07),transparent);pointer-events:none}
+  .wrap{max-width:920px;margin:0 auto;padding:24px 16px 80px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:28px}
+  .logo{display:flex;align-items:center;gap:12px}
+  .logo-mark{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:22px}
+  .logo h1{font-size:20px;letter-spacing:-.02em}
+  .logo .sub{font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+  .btn{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#111;border:none;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer;transition:.15s;font-family:inherit}
+  .btn:hover{transform:translateY(-1px);filter:brightness(1.05)}
+  .btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+  .btn.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--border)}
+  .btn.small{padding:7px 12px;font-size:12.5px;border-radius:8px}
+  .btn.danger{background:transparent;border:1px solid var(--red);color:var(--red)}
+  .btn.ok{background:transparent;border:1px solid var(--green);color:var(--green)}
+  .pill{font-family:var(--mono);font-size:12px;background:var(--panel2);border:1px solid var(--border);padding:7px 12px;border-radius:99px;color:var(--muted)}
+  .pill b{color:var(--text)}
+  .tabs{display:flex;gap:6px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:5px;margin-bottom:22px;overflow-x:auto}
+  .tab{flex:1;min-width:90px;text-align:center;padding:10px 8px;border-radius:9px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;transition:.15s;white-space:nowrap}
+  .tab.active{background:var(--panel2);color:var(--accent)}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:22px;margin-bottom:16px}
+  .card h2{font-size:16px;margin-bottom:4px}
+  .card .desc{font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.5}
+  label{display:block;font-size:12px;color:var(--muted);margin:14px 0 6px;font-weight:600;letter-spacing:.03em}
+  input[type=text],input[type=number]{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-size:14px;font-family:var(--mono);outline:none;transition:.15s}
+  input:focus{border-color:var(--accent)}
+  .balance-big{font-size:40px;font-weight:800;font-family:var(--mono);letter-spacing:-.02em;margin:6px 0 2px}
+  .balance-big .unit{font-size:16px;color:var(--muted);font-weight:600}
+  .enc-tag{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--accent);background:rgba(255,210,8,.08);border:1px solid rgba(255,210,8,.25);padding:4px 10px;border-radius:99px;margin-top:8px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .payroll-row{display:grid;grid-template-columns:1fr 140px 34px;gap:8px;margin-bottom:8px;align-items:center}
+  .payroll-row .rm{background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;height:38px;cursor:pointer;font-size:16px}
+  .payroll-row .rm:hover{border-color:var(--red);color:var(--red)}
+  .pay-item{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px}
+  .pay-item .top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+  .pay-item .addr{font-family:var(--mono);font-size:12.5px;color:var(--text)}
+  .pay-item .meta{font-size:11.5px;color:var(--muted);margin-top:5px}
+  .pay-item .amt{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--accent)}
+  .status{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:99px}
+  .status.pending{background:rgba(92,157,255,.12);color:var(--blue);border:1px solid rgba(92,157,255,.3)}
+  .status.claimed{background:rgba(47,212,122,.12);color:var(--green);border:1px solid rgba(47,212,122,.3)}
+  .status.recalled{background:rgba(255,92,122,.12);color:var(--red);border:1px solid rgba(255,92,122,.3)}
+  .actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:13px 20px;font-size:13.5px;max-width:90vw;opacity:0;pointer-events:none;transition:.25s;z-index:99;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+  #toast.show{opacity:1}
+  #toast.err{border-color:var(--red)}
+  #toast.ok{border-color:var(--green)}
+  .spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:6px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .hidden{display:none!important}
+  .empty{color:var(--muted);font-size:13.5px;text-align:center;padding:26px 0}
+  .init-note{font-size:12px;color:var(--muted);font-family:var(--mono)}
+  footer{text-align:center;margin-top:36px;font-size:12px;color:var(--muted)}
+  footer a{color:var(--accent);text-decoration:none}
+  @media(max-width:560px){.payroll-row{grid-template-columns:1fr 100px 34px}.balance-big{font-size:32px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo">
+      <div class="logo-mark">🐛</div>
+      <div>
+        <h1>KozaPay</h1>
+        <div class="sub">Confidential payroll · Zama FHEVM</div>
+      </div>
+    </div>
+    <div class="row">
+      <span class="pill hidden" id="netPill">Sepolia</span>
+      <span class="pill hidden" id="addrPill"></span>
+      <button class="btn" id="connectBtn">Connect Wallet</button>
+    </div>
+  </header>
+
+  <div class="card" id="initCard">
+    <h2>⚡ Initializing FHE engine…</h2>
+    <p class="desc init-note" id="initStatus">Loading TFHE wasm & fetching Zama public keys…</p>
+  </div>
+
+  <div id="app" class="hidden">
+
+    <div class="tabs">
+      <div class="tab active" data-tab="dash">Balance</div>
+      <div class="tab" data-tab="send">Send</div>
+      <div class="tab" data-tab="payroll">Payroll</div>
+      <div class="tab" data-tab="activity">Activity</div>
+    </div>
+
+    <!-- BALANCE -->
+    <section id="tab-dash">
+      <div class="card">
+        <h2>Encrypted Balance</h2>
+        <p class="desc">Your balance lives on-chain as ciphertext. Only you can decrypt it — the decryption happens in your browser, gated by the on-chain ACL.</p>
+        <div class="balance-big" id="balanceView">•••••• <span class="unit">KOZA</span></div>
+        <div class="enc-tag">🔒 stored encrypted on Sepolia</div>
+        <div class="actions" style="margin-top:18px">
+          <button class="btn" id="decryptBalBtn">Decrypt my balance</button>
+          <button class="btn ghost" id="faucetBtn">Claim faucet (10,000 KOZA)</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SEND -->
+    <section id="tab-send" class="hidden">
+      <div class="card">
+        <h2>Send a recallable payment</h2>
+        <p class="desc">The amount is encrypted in your browser before it ever touches the chain. The payment sits in escrow: the recipient can claim it — or you can recall it any time before they do. Observers see that a payment happened. They never see how much.</p>
+        <label>Recipient address</label>
+        <input type="text" id="sendTo" placeholder="0x…">
+        <label>Amount (KOZA)</label>
+        <input type="number" id="sendAmt" placeholder="100.00" min="0" step="0.01">
+        <label>Memo (public — optional, never put amounts here)</label>
+        <input type="text" id="sendMemo" placeholder="invoice #42" maxlength="64">
+        <div class="actions" style="margin-top:18px">
+          <button class="btn" id="sendBtn">🔒 Encrypt & Send</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAYROLL -->
+    <section id="tab-payroll" class="hidden">
+      <div class="card">
+        <h2>Confidential payroll</h2>
+        <p class="desc">Pay up to 20 people in a single transaction. All amounts are encrypted together in one batch proof. Each recipient can only decrypt <i>their own</i> salary — coworkers can't see each other's amounts, and neither can anyone else.</p>
+        <div id="payrollRows"></div>
+        <div class="actions">
+          <button class="btn ghost small" id="addRowBtn">+ Add recipient</button>
+        </div>
+        <label>Memo (public — optional)</label>
+        <input type="text" id="payrollMemo" placeholder="June salaries" maxlength="64">
+        <div class="actions" style="margin-top:18px">
+          <button class="btn" id="payrollBtn">🔒 Encrypt & Run Payroll</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY -->
+    <section id="tab-activity" class="hidden">
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <h2>Activity</h2>
+          <button class="btn ghost small" id="refreshBtn">↻ Refresh</button>
+        </div>
+        <p class="desc">Amounts show as 🔒 until you decrypt them. Pending payments you sent can be recalled; pending payments you received can be claimed.</p>
+        <h2 style="font-size:14px;margin:14px 0 10px">📥 Received</h2>
+        <div id="receivedList"><div class="empty">Connect & refresh</div></div>
+        <h2 style="font-size:14px;margin:20px 0 10px">📤 Sent</h2>
+        <div id="sentList"><div class="empty">Connect & refresh</div></div>
+      </div>
+    </section>
+
+    <footer>
+      Built by <a href="https://x.com/Dnyelfy" target="_blank">@Dnyelfy</a> · Powered by <a href="https://zama.org" target="_blank">Zama FHEVM</a> · #ZamaDeveloperProgram
+    </footer>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"></script>
+<script src="/relayer-sdk-js.umd.cjs"></script>
+<script>
+/* ============================================================
+   KozaPay — Confidential Payroll on Zama FHEVM (Sepolia)
+   ============================================================ */
+const CONTRACT_ADDRESS = "0xbD85BE896c61F772578fccDB0D0B02b3a6e293c0";
+
+const SEPOLIA_CHAIN_ID = 11155111;
+const DECIMALS = 2;
+
+const ABI = [
+  "function claimFaucet() external",
+  "function hasClaimedFaucet(address) view returns (bool)",
+  "function sendPayment(address to, bytes32 encryptedAmount, bytes inputProof, string memo) external returns (uint256)",
+  "function createPayroll(address[] recipients, bytes32[] encryptedAmounts, bytes inputProof, string memo) external returns (uint256)",
+  "function claimPayment(uint256 id) external",
+  "function recallPayment(uint256 id) external",
+  "function getBalance(address user) view returns (bytes32)",
+  "function getPayment(uint256 id) view returns (address from, address to, bytes32 amount, uint8 status, uint64 createdAt, uint256 payrollId, string memo)",
+  "function getSentIds(address user) view returns (uint256[])",
+  "function getReceivedIds(address user) view returns (uint256[])",
+  "function totalPayments() view returns (uint256)"
+];
+
+const ZERO_HANDLE = "0x" + "0".repeat(64);
+const STATUS = ["pending","claimed","recalled"];
+
+let fhe = null;           // relayer SDK instance
+let provider, signer, userAddr, contract;
+let decryptSession = null; // cached keypair + EIP712 signature for userDecrypt
+
+/* ---------- UI helpers ---------- */
+const $ = id => document.getElementById(id);
+function toast(msg, type){ const t=$('toast'); t.textContent=msg; t.className='show '+(type||''); clearTimeout(t._h); t._h=setTimeout(()=>t.className='',4200); }
+function busy(btn, on, txt){ if(on){ btn.dataset.old=btn.innerHTML; btn.innerHTML='<span class="spinner"></span>'+txt; btn.disabled=true; } else { btn.innerHTML=btn.dataset.old; btn.disabled=false; } }
+function short(a){ return a.slice(0,6)+'…'+a.slice(-4); }
+function fmt(v){ return (Number(v)/10**DECIMALS).toLocaleString('en-US',{minimumFractionDigits:DECIMALS,maximumFractionDigits:DECIMALS}); }
+function toUnits(s){ const n=parseFloat(s); if(isNaN(n)||n<=0) return null; return BigInt(Math.round(n*10**DECIMALS)); }
+
+/* ---------- Tabs ---------- */
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  ['dash','send','payroll','activity'].forEach(k=>$('tab-'+k).classList.toggle('hidden',k!==t.dataset.tab));
+  if(t.dataset.tab==='activity' && contract) loadActivity();
+}));
+
+/* ---------- FHE init ---------- */
+(async function initFHE(){
+  try{
+    const { initSDK, createInstance, SepoliaConfig } = window.relayerSDK;
+    await initSDK();
+    $('initStatus').textContent = 'Fetching Zama coprocessor public keys…';
+    fhe = await createInstance({ ...SepoliaConfig, network: window.ethereum || SepoliaConfig.network });
+    $('initCard').classList.add('hidden');
+    $('app').classList.remove('hidden');
+  }catch(e){
+    console.error(e);
+    $('initStatus').textContent = 'FHE init failed: ' + (e.message||e) + ' — refresh the page.';
+  }
+})();
+
+/* ---------- Wallet ---------- */
+$('connectBtn').addEventListener('click', connect);
+async function connect(){
+  try{
+    if(!window.ethereum){ toast('MetaMask not found','err'); return; }
+    provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send('eth_requestAccounts', []);
+    const net = await provider.getNetwork();
+    if(Number(net.chainId) !== SEPOLIA_CHAIN_ID){
+      try{
+        await window.ethereum.request({ method:'wallet_switchEthereumChain', params:[{ chainId:'0xaa36a7' }] });
+      }catch(_){ toast('Please switch to Sepolia','err'); return; }
+      provider = new ethers.BrowserProvider(window.ethereum);
+    }
+    signer = await provider.getSigner();
+    userAddr = await signer.getAddress();
+    contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+    decryptSession = null;
+    $('addrPill').innerHTML = '<b>'+short(userAddr)+'</b>';
+    $('addrPill').classList.remove('hidden');
+    $('netPill').classList.remove('hidden');
+    $('connectBtn').textContent = 'Connected';
+    toast('Wallet connected','ok');
+  }catch(e){ console.error(e); toast(e.shortMessage||e.message||'Connect failed','err'); }
+}
+function requireWallet(){ if(!contract){ toast('Connect your wallet first','err'); return false; } if(CONTRACT_ADDRESS.startsWith('PASTE')){ toast('Contract address not set in index.html','err'); return false; } return true; }
+
+/* ---------- userDecrypt session (one signature per session) ---------- */
+async function getDecryptSession(){
+  if(decryptSession) return decryptSession;
+  const { publicKey, privateKey } = fhe.generateKeypair();
+  const startTimestamp = Math.floor(Date.now()/1000);
+  const durationDays = 7;
+  const eip712 = fhe.createEIP712(publicKey, [CONTRACT_ADDRESS], startTimestamp, durationDays);
+  const types = { UserDecryptRequestVerification: eip712.types.UserDecryptRequestVerification };
+  const signature = await signer.signTypedData(eip712.domain, types, eip712.message);
+  decryptSession = { publicKey, privateKey, signature: signature.replace(/^0x/,''), startTimestamp, durationDays };
+  return decryptSession;
+}
+async function decryptHandles(handles){
+  const s = await getDecryptSession();
+  const pairs = handles.map(h => ({ handle: h, contractAddress: CONTRACT_ADDRESS }));
+  const res = await fhe.userDecrypt(pairs, s.privateKey, s.publicKey, s.signature, [CONTRACT_ADDRESS], userAddr, s.startTimestamp, s.durationDays);
+  return res;
+}
+
+/* ---------- Balance ---------- */
+$('decryptBalBtn').addEventListener('click', async ()=>{
+  if(!requireWallet()) return;
+  const b = $('decryptBalBtn'); busy(b,true,'Decrypting…');
+  try{
+    const handle = await contract.getBalance(userAddr);
+    if(handle === ZERO_HANDLE){
+      $('balanceView').innerHTML = '0.00 <span class="unit">KOZA</span>';
+    }else{
+      const res = await decryptHandles([handle]);
+      const v = res[handle];
+      $('balanceView').innerHTML = fmt(v)+' <span class="unit">KOZA</span>';
+    }
+    toast('Balance decrypted locally','ok');
+  }catch(e){ console.error(e); toast(e.shortMessage||e.message||'Decrypt failed','err'); }
+  busy(b,false);
+});
+
+$('faucetBtn').addEventListener('click', async ()=>{
+  if(!requireWallet()) return;
+  const b=$('faucetBtn'); busy(b,true,'Claiming…');
+  try{
+    if(await contract.hasClaimedFaucet(userAddr)){ toast('Faucet already claimed on this address','err'); busy(b,false); return; }
+    const tx = await contract.claimFaucet();
+    await tx.wait();
+    toast('10,000 KOZA minted (encrypted) ✓','ok');
+  }catch(e){ console.error(e); toast(e.shortMessage||e.message||'Faucet failed','err'); }
+  busy(b,false);
+});
+
+/* ---------- Send single ---------- */
+$('sendBtn').addEventListener('click', async ()=>{
+  if(!requireWallet()) return;
+  const to = $('sendTo').value.trim();
+  const amt = toUnits($('sendAmt').value);
+  if(!ethers.isAddress(to)){ toast('Invalid recipient address','err'); return; }
+  if(amt===null){ toast('Invalid amount','err'); return; }
+  const b=$('sendBtn'); busy(b,true,'Encrypting…');
+  try{
+    const input = fhe.createEncryptedInput(CONTRACT_ADDRESS, userAddr);
+    input.add64(amt);
+    const enc = await input.encrypt();
+    busy(b,false); busy(b,true,'Sending tx…');
+    const tx = await contract.sendPayment(to, ethers.hexlify(enc.handles[0]), ethers.hexlify(enc.inputProof), $('sendMemo').value.trim());
+    await tx.wait();
+    toast('Payment sent — amount is invisible on-chain 🔒','ok');
+    $('sendTo').value=''; $('sendAmt').value=''; $('sendMemo').value='';
+  }catch(e){ console.error(e); toast(e.shortMessage||e.message||'Send failed','err'); }
+  busy(b,false);
+});
+
+/* ---------- Payroll ---------- */
+function addPayrollRow(){
+  const rows = $('payrollRows');
+  if(rows.children.length>=20){ toast('Max 20 recipients','err'); return; }
+  const div=document.createElement('div'); div.className='payroll-row';
+  div.innerHTML='<input type="text" class="pr-addr" placeholder="0x… recipient"><input type="number" class="pr-amt" placeholder="0.00" min="0" step="0.01"><button class="rm" title="Remove">×</button>';
+  div.querySelector('.rm').addEventListener('click',()=>div.remove());
+  rows.appendChild(div);
+}
+$('addRowBtn').addEventListener('click',addPayrollRow);
+addPayrollRow(); addPayrollRow();
+
+$('payrollBtn').addEventListener('click', async ()=>{
+  if(!requireWallet()) return;
+  const rows=[...document.querySelectorAll('.payroll-row')];
+  const recipients=[], amounts=[];
+  for(const r of rows){
+    const a=r.querySelector('.pr-addr').value.trim();
+    const v=toUnits(r.querySelector('.pr-amt').value);
+    if(!a && v===null) continue;
+    if(!ethers.isAddress(a)){ toast('Invalid address: '+a,'err'); return; }
+    if(v===null){ toast('Invalid amount for '+short(a),'err'); return; }
+    recipients.push(a); amounts.push(v);
+  }
+  if(recipients.length===0){ toast('Add at least one recipient','err'); return; }
+  const b=$('payrollBtn'); busy(b,true,'Encrypting batch…');
+  try{
+    const input = fhe.createEncryptedInput(CONTRACT_ADDRESS, userAddr);
+    amounts.forEach(v=>input.add64(v));
+    const enc = await input.encrypt();
+    const handles = enc.handles.map(h=>ethers.hexlify(h));
+    busy(b,false); busy(b,true,'Sending tx…');
+    const tx = await contract.createPayroll(recipients, handles, ethers.hexlify(enc.inputProof), $('payrollMemo').value.trim());
+    await tx.wait();
+    toast('Payroll executed for '+recipients.length+' recipients 🔒','ok');
+    $('payrollRows').innerHTML=''; addPayrollRow(); addPayrollRow(); $('payrollMemo').value='';
+  }catch(e){ console.error(e); toast(e.shortMessage||e.message||'Payroll failed','err'); }
+  busy(b,false);
+});
+
+/* ---------- Activity ---------- */
+$('refreshBtn').addEventListener('click', loadActivity);
+async function loadActivity(){
+  if(!requireWallet()) return;
+  try{
+    const [sent, recv] = await Promise.all([contract.getSentIds(userAddr), contract.getReceivedIds(userAddr)]);
+    await renderList('sentList', [...sent].reverse(), 'sent');
+    await renderList('receivedList', [...recv].reverse(), 'recv');
+  }catch(e){ console.error(e); toast('Failed to load activity','err'); }
+}
+async function renderList(elId, ids, kind){
+  const el = $(elId);
+  if(ids.length===0){ el.innerHTML='<div class="empty">Nothing here yet</div>'; return; }
+  el.innerHTML='';
+  for(const id of ids.slice(0,25)){
+    const p = await contract.getPayment(id);
+    const other = kind==='sent' ? p.to : p.from;
+    const st = STATUS[Number(p.status)];
+    const div=document.createElement('div'); div.className='pay-item';
+    div.innerHTML = `
+      <div class="top">
+        <div>
+          <div class="addr">${kind==='sent'?'→':'←'} ${short(other)} <span style="color:var(--muted)">#${id}${Number(p.payrollId)>0?' · payroll '+p.payrollId:''}</span></div>
+          <div class="meta">${new Date(Number(p.createdAt)*1000).toLocaleString()} ${p.memo?('· '+p.memo):''}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="amt" data-handle="${p.amount}">🔒 encrypted</div>
+          <span class="status ${st}">${st}</span>
+        </div>
+      </div>
+      <div class="actions"></div>`;
+    const act = div.querySelector('.actions');
+    const dec = document.createElement('button'); dec.className='btn ghost small'; dec.textContent='Decrypt amount';
+    dec.addEventListener('click', async ()=>{
+      busy(dec,true,'…');
+      try{
+        const res = await decryptHandles([p.amount]);
+        div.querySelector('.amt').textContent = fmt(res[p.amount])+' KOZA';
+        dec.remove();
+      }catch(e){ console.error(e); toast(e.shortMessage||e.message||'Decrypt failed','err'); busy(dec,false); }
+    });
+    act.appendChild(dec);
+    if(st==='pending'){
+      const btn=document.createElement('button');
+      if(kind==='recv'){ btn.className='btn ok small'; btn.textContent='Claim'; btn.addEventListener('click',()=>doAction(btn,'claimPayment',id)); }
+      else { btn.className='btn danger small'; btn.textContent='Recall'; btn.addEventListener('click',()=>doAction(btn,'recallPayment',id)); }
+      act.appendChild(btn);
+    }
+    el.appendChild(div);
+  }
+}
+async function doAction(btn, fn, id){
+  busy(btn,true,'…');
+  try{
+    const tx = await contract[fn](id);
+    await tx.wait();
+    toast(fn==='claimPayment'?'Payment claimed ✓':'Payment recalled ✓','ok');
+    loadActivity();
+  }catch(e){ console.error(e); toast(e.shortMessage||e.message||'Failed','err'); busy(btn,false); }
+}
+</script>
+</body>
+</html>
